@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strconv"
+	"io/ioutil"
 )
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +25,10 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	ReadJSON("fillerData.json")
-	
+	file, _ := ioutil.ReadFile("key")
+
+	keyAPI := string(file)
+
 	http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
 		queryValues, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
@@ -36,7 +40,7 @@ func main() {
 				w.WriteHeader(http.StatusForbidden)
 				fmt.Fprintf(w, "403 Forbidden: You are forbidden to access without an API key.")
 			} else {
-				if keyValue[0] == "keytest" {
+				if keyValue[0] == keyAPI {
 					parsedNIM, err := strconv.Atoi(queryValues["nim"][0])
 					if err != nil {
 						fmt.Fprintf(w, "{ }")
