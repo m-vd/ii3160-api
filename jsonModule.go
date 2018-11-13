@@ -43,7 +43,7 @@ func Find(nim int) string {
 	if returnValue != nil {
 		return (string(returnValue))
 	} else {
-		return "Not Found"
+		return "{ }"
 	}
 
 }
