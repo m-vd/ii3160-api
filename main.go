@@ -116,5 +116,11 @@ func main() {
 	http.HandleFunc("/login", authHandler)
 	http.HandleFunc("/", indexHandler)
 
-	log.Fatal(http.ListenAndServe(os.Getenv("PORT"), nil))
+	port := os.Getenv("PORT")
+
+	if port != "" {
+		log.Fatal(http.ListenAndServe(port, nil))
+	} else {
+		log.Fatal(http.ListenAndServe(":3160", nil))
+	}
 }
