@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 )
 
@@ -114,5 +115,6 @@ func main() {
 	http.HandleFunc("/api", apiHandler)
 	http.HandleFunc("/login", authHandler)
 	http.HandleFunc("/", indexHandler)
-	log.Fatal(http.ListenAndServe(":3160", nil))
+
+	log.Fatal(http.ListenAndServe(os.Getenv("PORT"), nil))
 }
