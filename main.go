@@ -28,8 +28,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func apiHandler(w http.ResponseWriter, r *http.Request) {
-	file, _ := ioutil.ReadFile("key")
-	keyAPI := string(file)
 	//Only handle GET requests
 	switch r.Method {
 	case http.MethodGet:
@@ -44,18 +42,27 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusForbidden)
 				fmt.Fprintf(w, "403 Forbidden: You are forbidden to access without an API key.")
 			} else {
-				if keyValue[0] == keyAPI {
+				if CheckAPIKey(keyValue[0]) {
 					//Check for NIM query
 					nimValue, found := queryValues["nim"]
 					if !found {
-						w.WriteHeader(http.StatusBadRequest)
-						fmt.Fprintf(w, "400 Bad Request: You have to provide a NIM value.")
+						nameValue, found := queryValues["nama"]
+						if !found {
+							w.WriteHeader(http.StatusBadRequest)
+							fmt.Fprintf(w, "400 Bad Request: You have to provide a search query.")
+						} else {
+							fmt.Fprintf(w, FindByNama(nameValue[0]))
+						}
 					} else {
 						parsedNIM, err := strconv.Atoi(nimValue[0])
 						if err != nil {
 							fmt.Fprintf(w, "{}")
 						} else {
-							fmt.Fprintf(w, FindByNimProdi(parsedNIM))
+							if FindByNimProdi(parsedNIM) == "{}" {
+								fmt.Fprintf(w, FindByNimTPB(parsedNIM))
+							} else {
+								fmt.Fprintf(w, FindByNimProdi(parsedNIM))
+							}
 						}
 					}
 				} else {
@@ -77,7 +84,7 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		ticket, ticketPresent := query["ticket"]
 		if ticketPresent {
-			validationResponse, err := http.Get("https://login.itb.ac.id/cas/serviceValidate?service=" + url.QueryEscape(r.Host+"/login") + "&ticket=" + url.QueryEscape(ticket[0]))
+			validationResponse, err := http.Get("https://login.itb.ac.id/cas/serviceValidate?service=https://" + url.QueryEscape(r.Host+"/login") + "&ticket=" + url.QueryEscape(ticket[0]))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -90,23 +97,26 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 			parsed := ParseResponseXML(validationBody)
 
 			if !CheckUserExistByMail(parsed.Mail) {
-				//create api key
 				u := User{
 					Mail:   parsed.Mail,
 					Cn:     parsed.Cn,
 					Sn:     parsed.Sn,
 					Nim:    parsed.ItbNIM,
-					APIKey: parsed.Mail,
+					APIKey: GenerateAPIKey(),
 				}
 
 				//Create user and send API key
 				if AddNewUser(u) {
+					fmt.Printf("%+v", u)
+					fmt.Fprintf(w, "Please take note of the API Key, as you will be only given this key once.\n")
 					fmt.Fprintf(w, u.APIKey)
 				}
+			} else {
+				fmt.Println("Redirecting to API")
+				http.Redirect(w, r, "/api", http.StatusFound)
 			}
-
 		} else {
-			http.Redirect(w, r, ("https://login.itb.ac.id/cas/login?service=" + url.QueryEscape(r.Host+"/login")), http.StatusFound)
+			http.Redirect(w, r, ("https://login.itb.ac.id/cas/login?service=https://" + url.QueryEscape(r.Host+"/login")), http.StatusFound)
 		}
 	}
 }
@@ -119,7 +129,8 @@ func main() {
 	port := os.Getenv("PORT")
 
 	if port != "" {
-		log.Fatal(http.ListenAndServe(port, nil))
+		log.Fatal(http.ListenAndServe(":"+port, nil))
+		fmt.Println("Running on port " + port)
 	} else {
 		log.Fatal(http.ListenAndServe(":3160", nil))
 	}
